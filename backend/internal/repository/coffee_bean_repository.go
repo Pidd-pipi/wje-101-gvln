@@ -27,7 +27,7 @@ func (r *CoffeeBeanRepository) FindByID(id uint) (*model.CoffeeBean, error) {
 // Update persists a bean.
 func (r *CoffeeBeanRepository) Update(b *model.CoffeeBean) error { return translate(r.db.Save(b).Error) }
 
-// Delete removes a bean.
+// Delete removes a bean by id.
 func (r *CoffeeBeanRepository) Delete(id uint) error {
 	res := r.db.Delete(&model.CoffeeBean{}, id)
 	if res.Error != nil {
@@ -39,9 +39,15 @@ func (r *CoffeeBeanRepository) Delete(id uint) error {
 	return nil
 }
 
-// List filters beans by origin/process/keyword.
-func (r *CoffeeBeanRepository) List(origin, process, keyword string, page, pageSize int) ([]model.CoffeeBean, int64, error) {
-	var items []model.CoffeeBean
+// BeanWithNoteCount is a coffee bean paired with the number of notes referencing it.
+type BeanWithNoteCount struct {
+	model.CoffeeBean
+	NoteCount int64 `json:"note_count" gorm:"->"`
+}
+
+// List filters beans by origin/process/keyword and includes the bound note count.
+func (r *CoffeeBeanRepository) List(origin, process, keyword string, page, pageSize int) ([]BeanWithNoteCount, int64, error) {
+	var items []BeanWithNoteCount
 	var total int64
 	q := r.db.Model(&model.CoffeeBean{})
 	if origin != "" {
@@ -57,7 +63,9 @@ func (r *CoffeeBeanRepository) List(origin, process, keyword string, page, pageS
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := q.Order("id ASC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
+	err := q.Select("coffee_beans.*, (SELECT COUNT(*) FROM tasting_notes WHERE tasting_notes.coffee_bean_id = coffee_beans.id) AS note_count").
+		Order("id ASC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error
+	if err != nil {
 		return nil, 0, err
 	}
 	return items, total, nil

@@ -1,3 +1,5 @@
+import type { CoffeeBean } from './bean'
+
 export type RoastLevel = 'light' | 'medium' | 'dark'
 
 export const RoastLevelMap: Record<RoastLevel, string> = {
@@ -11,6 +13,8 @@ export const ROAST_LEVELS = Object.keys(RoastLevelMap) as RoastLevel[]
 export interface TastingNote {
   id: number
   user_id: number
+  coffee_bean_id: number | null
+  coffee_bean?: CoffeeBean | null
   coffee_name: string
   origin: string
   roast_level: RoastLevel
@@ -30,6 +34,18 @@ export interface TastingNote {
 export interface NoteItem {
   note: TastingNote
   like_count: number
+}
+
+// displayName returns the latest bean name when bound, otherwise the
+// snapshot name stored on the note.
+export function displayName(note: TastingNote): string {
+  return note.coffee_bean?.name || note.coffee_name
+}
+
+// displayOrigin returns the latest bean origin when bound, otherwise the
+// snapshot origin stored on the note.
+export function displayOrigin(note: TastingNote): string {
+  return note.coffee_bean?.origin || note.origin
 }
 
 export function parseTags(raw: string): string[] {

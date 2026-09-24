@@ -78,7 +78,7 @@ func (h *NoteHandler) Create(c *gin.Context) {
 		return
 	}
 	n := &model.TastingNote{
-		CoffeeName: req.CoffeeName, Origin: req.Origin, RoastLevel: req.RoastLevel,
+		CoffeeBeanID: req.CoffeeBeanID, CoffeeName: req.CoffeeName, Origin: req.Origin, RoastLevel: req.RoastLevel,
 		FlavorTags: req.FlavorTags, AromaScore: req.AromaScore, AcidityScore: req.AcidityScore,
 		BodyScore: req.BodyScore, OverallScore: req.OverallScore, BrewMethod: req.BrewMethod,
 		BrewRecipeID: req.BrewRecipeID, NotesText: req.NotesText, ImageURL: req.ImageURL,
@@ -104,9 +104,10 @@ func (h *NoteHandler) Update(c *gin.Context) {
 		return
 	}
 	n := &model.TastingNote{
-		CoffeeName: req.CoffeeName, Origin: req.Origin, RoastLevel: req.RoastLevel,
+		CoffeeBeanID: req.CoffeeBeanID, CoffeeName: req.CoffeeName, Origin: req.Origin, RoastLevel: req.RoastLevel,
 		FlavorTags: req.FlavorTags, AromaScore: req.AromaScore, AcidityScore: req.AcidityScore,
-		BodyScore: req.BodyScore, OverallScore: req.OverallScore, NotesText: req.NotesText,
+		BodyScore: req.BodyScore, OverallScore: req.OverallScore, BrewMethod: req.BrewMethod,
+		BrewRecipeID: req.BrewRecipeID, NotesText: req.NotesText, ImageURL: req.ImageURL,
 	}
 	updated, err := h.svc.Update(middleware.GetUserID(c), uint(id), n)
 	if err != nil {

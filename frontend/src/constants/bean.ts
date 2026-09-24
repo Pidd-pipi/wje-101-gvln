@@ -16,5 +16,6 @@ export interface CoffeeBean {
   process_method: ProcessMethod
   flavor_tags: string
   description: string
+  note_count?: number
   created_at: string
 }

@@ -13,13 +13,14 @@ import (
 
 // NoteService handles tasting notes.
 type NoteService struct {
-	repo   *repository.TastingNoteRepository
-	logger *slog.Logger
+	repo     *repository.TastingNoteRepository
+	beanRepo *repository.CoffeeBeanRepository
+	logger   *slog.Logger
 }
 
 // NewNoteService creates a NoteService.
-func NewNoteService(repo *repository.TastingNoteRepository, logger *slog.Logger) *NoteService {
-	return &NoteService{repo: repo, logger: logger}
+func NewNoteService(repo *repository.TastingNoteRepository, beanRepo *repository.CoffeeBeanRepository, logger *slog.Logger) *NoteService {
+	return &NoteService{repo: repo, beanRepo: beanRepo, logger: logger}
 }
 
 // Create adds a note for a user.
@@ -27,6 +28,17 @@ func (s *NoteService) Create(userID uint, n *model.TastingNote) (*model.TastingN
 	if !constants.IsValidRoastLevel(n.RoastLevel) {
 		return nil, util.NewAppError(422, constants.CodeValidationError,
 			fmt.Sprintf("TastingNote[roast_level=%s] create failed: invalid roast level", n.RoastLevel))
+	}
+	if n.CoffeeBeanID != nil {
+		bean, err := s.beanRepo.FindByID(*n.CoffeeBeanID)
+		if err != nil {
+			if errors.Is(err, repository.ErrNotFound) {
+				return nil, util.NewAppError(422, constants.CodeValidationError,
+					fmt.Sprintf("TastingNote[coffee_bean_id=%d] create failed: bean not found", *n.CoffeeBeanID))
+			}
+			return nil, fmt.Errorf("note create bean find: %w", err)
+		}
+		n.CoffeeBeanID = &bean.ID
 	}
 	n.UserID = userID
 	if n.FlavorTags == "" {
@@ -36,8 +48,12 @@ func (s *NoteService) Create(userID uint, n *model.TastingNote) (*model.TastingN
 		s.logger.Error(fmt.Sprintf(constants.LogNoteCreateFailed, n.CoffeeName), "error", err)
 		return nil, fmt.Errorf("note create: %w", err)
 	}
-	s.logger.Info(fmt.Sprintf(constants.LogNoteCreateSuccess, n.CoffeeName), "id", n.ID)
-	return n, nil
+	created, err := s.repo.FindByID(n.ID)
+	if err != nil {
+		return nil, fmt.Errorf("note create reload: %w", err)
+	}
+	s.logger.Info(fmt.Sprintf(constants.LogNoteCreateSuccess, created.CoffeeName), "id", created.ID, "coffee_bean_id", created.CoffeeBeanID)
+	return created, nil
 }
 
 // Get returns a note by id.
@@ -61,6 +77,22 @@ func (s *NoteService) Update(userID, id uint, n *model.TastingNote) (*model.Tast
 	if exist.UserID != userID {
 		return nil, util.NewAppError(403, constants.CodeForbidden,
 			fmt.Sprintf("TastingNote[id=%d] update failed: user_id=%d not owner", id, userID))
+	}
+	// A present coffee_bean_id re-binds the note; explicit 0 unbinds it.
+	if n.CoffeeBeanID != nil {
+		if *n.CoffeeBeanID == 0 {
+			exist.CoffeeBeanID = nil
+		} else {
+			bean, err := s.beanRepo.FindByID(*n.CoffeeBeanID)
+			if err != nil {
+				if errors.Is(err, repository.ErrNotFound) {
+					return nil, util.NewAppError(422, constants.CodeValidationError,
+						fmt.Sprintf("TastingNote[coffee_bean_id=%d] update failed: bean not found", *n.CoffeeBeanID))
+				}
+				return nil, fmt.Errorf("note update bean find: %w", err)
+			}
+			exist.CoffeeBeanID = &bean.ID
+		}
 	}
 	if n.CoffeeName != "" {
 		exist.CoffeeName = n.CoffeeName
@@ -89,8 +121,13 @@ func (s *NoteService) Update(userID, id uint, n *model.TastingNote) (*model.Tast
 	if err := s.repo.Update(exist); err != nil {
 		return nil, fmt.Errorf("note update: %w", err)
 	}
-	s.logger.Info(fmt.Sprintf(constants.LogNoteUpdateSuccess, id), "id", id)
-	return exist, nil
+	// Reload so the bound bean reflects the new binding (or its absence).
+	updated, err := s.repo.FindByID(exist.ID)
+	if err != nil {
+		return nil, fmt.Errorf("note update reload: %w", err)
+	}
+	s.logger.Info(fmt.Sprintf(constants.LogNoteUpdateSuccess, id), "id", id, "coffee_bean_id", updated.CoffeeBeanID)
+	return updated, nil
 }
 
 // Delete removes a note owned by the user.

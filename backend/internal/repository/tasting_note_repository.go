@@ -15,17 +15,19 @@ func NewTastingNoteRepository(db *gorm.DB) *TastingNoteRepository { return &Tast
 // Create inserts a note.
 func (r *TastingNoteRepository) Create(n *model.TastingNote) error { return translate(r.db.Create(n).Error) }
 
-// FindByID locates a note by id.
+// FindByID locates a note by id and preloads its bound coffee bean.
 func (r *TastingNoteRepository) FindByID(id uint) (*model.TastingNote, error) {
 	var n model.TastingNote
-	if err := translate(r.db.First(&n, id).Error); err != nil {
+	if err := translate(r.db.Preload("CoffeeBean").First(&n, id).Error); err != nil {
 		return nil, err
 	}
 	return &n, nil
 }
 
 // Update persists a note.
-func (r *TastingNoteRepository) Update(n *model.TastingNote) error { return translate(r.db.Save(n).Error) }
+func (r *TastingNoteRepository) Update(n *model.TastingNote) error {
+	return translate(r.db.Omit("CoffeeBean").Save(n).Error)
+}
 
 // Delete removes a note by id.
 func (r *TastingNoteRepository) Delete(id uint) error {
@@ -40,6 +42,7 @@ func (r *TastingNoteRepository) Delete(id uint) error {
 }
 
 // List filters notes by roast/origin/keyword, ordered by like count or recency.
+// Each note's bound coffee bean is preloaded so the API can show its latest profile.
 func (r *TastingNoteRepository) List(roast, origin, keyword string, hot bool, page, pageSize int) ([]model.TastingNote, int64, error) {
 	var items []model.TastingNote
 	var total int64
@@ -61,7 +64,7 @@ func (r *TastingNoteRepository) List(roast, origin, keyword string, hot bool, pa
 	if hot {
 		order = "overall_score DESC, id DESC"
 	}
-	if err := q.Order(order).Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
+	if err := q.Preload("CoffeeBean").Order(order).Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
 		return nil, 0, err
 	}
 	return items, total, nil
@@ -70,10 +73,19 @@ func (r *TastingNoteRepository) List(roast, origin, keyword string, hot bool, pa
 // ListByUser returns notes of a user.
 func (r *TastingNoteRepository) ListByUser(userID uint) ([]model.TastingNote, error) {
 	var items []model.TastingNote
-	if err := r.db.Where("user_id = ?", userID).Order("id DESC").Find(&items).Error; err != nil {
+	if err := r.db.Preload("CoffeeBean").Where("user_id = ?", userID).Order("id DESC").Find(&items).Error; err != nil {
 		return nil, err
 	}
 	return items, nil
+}
+
+// CountByBean returns the number of notes bound to the given bean.
+func (r *TastingNoteRepository) CountByBean(beanID uint) (int64, error) {
+	var count int64
+	if err := r.db.Model(&model.TastingNote{}).Where("coffee_bean_id = ?", beanID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // AvgScore returns the average overall score of a user's notes.

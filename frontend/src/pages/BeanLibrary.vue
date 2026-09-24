@@ -22,7 +22,10 @@
           <div class="meta">{{ b.origin || '-' }}</div>
           <FlavorTags :tags="b.flavor_tags" />
           <p class="desc">{{ b.description }}</p>
-          <el-button v-if="isAdmin" size="small" type="danger" plain @click="removeBean(b.id)">删除</el-button>
+          <div class="bean-foot">
+            <el-tag size="small" :type="b.note_count ? 'success' : 'info'">关联笔记 {{ b.note_count || 0 }}</el-tag>
+            <el-button v-if="isAdmin" size="small" type="danger" plain @click="removeBean(b)">撤下</el-button>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -50,14 +53,14 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import SearchFilter from '@/components/common/SearchFilter.vue'
 import FlavorTags from '@/components/common/FlavorTags.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { useBeanStore } from '@/stores/useBeanStore'
 import { useAuth } from '@/hooks/useAuth'
 import { createBean, deleteBean } from '@/api/bean'
-import { ProcessMethodMap, type ProcessMethod } from '@/constants/bean'
+import { ProcessMethodMap, type ProcessMethod, type CoffeeBean } from '@/constants/bean'
 
 const store = useBeanStore()
 const { isAdmin } = useAuth()
@@ -95,10 +98,23 @@ async function addBean() {
   showAdd.value = false
   await load()
 }
-async function removeBean(id: number) {
-  await deleteBean(id)
-  ElMessage.success('已删除')
-  await load()
+async function removeBean(b: CoffeeBean) {
+  try {
+    await ElMessageBox.confirm(
+      `确定撤下豆种「${b.name}」吗？`,
+      '撤下豆种',
+      { type: 'warning', confirmButtonText: '撤下', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await deleteBean(b.id)
+    ElMessage.success('已撤下')
+    await load()
+  } catch {
+    // 后端会在该豆种仍被笔记引用时拒绝，错误信息已由请求拦截器弹出
+  }
 }
 </script>
 
@@ -107,4 +123,5 @@ async function removeBean(id: number) {
 .bean-card { margin-bottom: 16px; }
 .meta { color: #999; font-size: 12px; margin: 6px 0; }
 .desc { color: #666; margin-top: 8px; }
+.bean-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
 </style>

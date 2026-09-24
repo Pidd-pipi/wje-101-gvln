@@ -6,6 +6,7 @@
         <el-select v-model="beanId" placeholder="选择豆种自动填充" filterable clearable style="width: 320px" @change="onBeanChange">
           <el-option v-for="b in beans" :key="b.id" :label="`${b.name}（${b.origin}）`" :value="b.id" />
         </el-select>
+        <span class="hint">选择后笔记将与豆种档案绑定，档案改名或更新处理法后详情同步展示</span>
       </el-form-item>
       <el-form-item label="咖啡名称"><el-input v-model="form.coffee_name" placeholder="如：埃塞俄比亚耶加雪菲" /></el-form-item>
       <el-form-item label="产地"><el-input v-model="form.origin" /></el-form-item>
@@ -55,6 +56,7 @@ const beanId = ref<number>()
 const tagInput = ref<string[]>([])
 const submitting = ref(false)
 const form = reactive({
+  coffee_bean_id: null as number | null,
   coffee_name: '', origin: '', roast_level: 'light' as string, flavor_tags: '[]',
   aroma_score: 0, acidity_score: 0, body_score: 0, overall_score: 0,
   brew_method: '', brew_recipe_id: 0, notes_text: '', image_url: '',
@@ -70,6 +72,7 @@ onMounted(async () => {
 })
 
 function onBeanChange(id: number | undefined) {
+  form.coffee_bean_id = id ?? null
   const b = beans.value.find((x) => x.id === id)
   if (!b) return
   form.coffee_name = b.name
@@ -97,4 +100,5 @@ async function submit() {
 <style scoped>
 .page { max-width: 720px; margin: 0 auto; }
 .form { margin-top: 16px; }
+.hint { margin-left: 12px; color: #999; font-size: 12px; }
 </style>

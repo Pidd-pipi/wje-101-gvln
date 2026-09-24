@@ -26,8 +26,8 @@
     <el-row :gutter="16">
       <el-col v-for="n in data.notes" :key="n.id" :xs="24" :sm="12" :md="8">
         <el-card class="note-card" shadow="hover" @click="$router.push(`/note/${n.id}`)">
-          <h4>{{ n.coffee_name }}</h4>
-          <div class="meta">{{ n.origin }} · {{ RoastLevelMap[n.roast_level] }}</div>
+          <h4>{{ displayName(n) }}</h4>
+          <div class="meta">{{ displayOrigin(n) || '-' }} · {{ RoastLevelMap[n.roast_level] }}</div>
           <ScoreStars :model-value="n.overall_score" />
         </el-card>
       </el-col>
@@ -45,7 +45,7 @@ import ScoreStars from '@/components/common/ScoreStars.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { getUserProfile, followUser, unfollowUser } from '@/api/user'
 import { useAuth } from '@/hooks/useAuth'
-import { RoastLevelMap } from '@/constants/note'
+import { RoastLevelMap, displayName, displayOrigin } from '@/constants/note'
 import type { ProfileData } from '@/api/user'
 
 const route = useRoute()
